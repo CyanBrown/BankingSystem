@@ -1,0 +1,4 @@
+docker run --name some-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=my-secret-pw -d mysql
+docker exec -it <container_id> /bin/sh
+
+ create table BankingSystem (id int, type text(6), name text(20), birthdate date, balance int,
