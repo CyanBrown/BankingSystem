@@ -1,5 +1,6 @@
 import json
 import random
+from datetime import date, datetime
 from decimal import *
 
 class User:
@@ -38,7 +39,7 @@ class NormalUser(User):
         self.balance = initial_deposit
 
     def get_tuple(self):
-        return (self.id, self.name, self.birthdate, self.balance, self.username, self.password)
+        return self.id, self.name, datetime.strptime("%Y-%m-%d", self.birthdate), self.balance, self.username, self.password, False
 
     def add_balance(self, amount):
         self.balance += amount
@@ -56,7 +57,7 @@ class Administrator(User):
         super().__init__("admin", name, username, password, id=id)
 
     def get_tuple(self):
-        return (self.id, self.name,self.username,self.password)
+        return self.id, self.name, datetime.strptime("%Y-%m-%d", '2000-01-01'), 0.0, self.username, self.password, True
 
     def __str__(self):
         return "\nID: "+str(self.id)+"\nNAME: "+self.name+"\n"

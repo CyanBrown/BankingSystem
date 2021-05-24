@@ -8,21 +8,31 @@ from typing import List
 from decimal import *
 import mysql.connector
 
-from datetime import datetime
+from datetime import date
 
 term = blessed.Terminal()
+
 
 class UserDb():
     def __init__(self):
 
         self.db = mysql.connector.connect(
-                    host="localhost",
-                    user="root",
-                    password="my-secret-pw",
-                    database="BankingSystem"
-                )
+            host="localhost",
+            user="root",
+            password="my-secret-pw",
+            database="BankingSystem"
+        )
 
         self.cursor = self.db.cursor()
+
+    def create_user_from_tuple(self, tup):
+        tup = list(tup)
+
+        if tup[6] is not None and tup[6] != 0:
+            return Administrator(tup[1], tup[4], tup[5], id=tup[0])
+
+        else:
+            return NormalUser(tup[1], tup[2], tup[4], tup[5], initial_deposit=tup[3], id=tup[0])
 
     def login_user(self, username: str, pwd: str):
 
@@ -32,19 +42,17 @@ class UserDb():
 
         if len(cur) == 1:
             user = cur[0]
-            print(user)
-
-        print("incorrect")
-
-        # load one user at a time
+            return self.create_user_from_tuple(user)
+        else:
+            return None
 
 
 
+    def save_user(self, user):
 
-    def save_users(self, user : User):
-
-        # save given user
-        pass
+        # print(f'insert into NormalUsers values {user.get_tuple()}')
+        self.cursor.execute(f"insert into NormalUsers values {user.get_tuple()}")
+        self.db.commit()
 
 
 class BankingSystem():
@@ -52,10 +60,11 @@ class BankingSystem():
         self.users = userdb
         self.error_str = ""
         self.main_loop()
+        self.user = None
 
     def request_login(self, limit):
 
-        #only return user object
+        # only return user object
 
         for i in range(limit):
             os.system('cls')
@@ -64,10 +73,10 @@ class BankingSystem():
             password = stdiomask.getpass()
 
             # this will be replaced with a search alg
-            person_idx = self.users.login_user(username, password)
-            if person_idx is not None:
+            person = self.users.login_user(username, password)
+            if person is not None:
                 os.system('cls')
-                return person_idx
+                return person
 
         print(term.red + 'You have run out of attempts' + term.red)
         quit()
@@ -81,10 +90,11 @@ class BankingSystem():
         else:
             return commands
 
-    def deposit(self, idx, command):
+    def deposit(self, command):
         try:
-            if self.users.users[idx].type == 'normal':
-                self.users.users[idx].add_balance(float(command))
+            if self.user.type == 'normal':
+                self.user.add_balance(float(command))
+                self.users.save_user(self.user)
 
             else:
                 self.error_str = "Administrators cannot deposit."
@@ -92,10 +102,11 @@ class BankingSystem():
         except TypeError:
             self.error_str = "Amount of money to deposit is invalid."
 
-    def withdraw(self, idx, command):
+    def withdraw(self, command):
         try:
-            if self.users.users[idx].type == 'normal':
-                self.users.users[idx].add_balance(-float(command))
+            if self.user.type == 'normal':
+                self.user.add_balance(-float(command))
+                self.users.save_user(self.user)
 
             else:
                 self.error_str = "Administrators cannot withdraw."
@@ -108,17 +119,17 @@ class BankingSystem():
         user_type = input("What type of user do you want to create? (administrator / normal): ")
 
         if user_type == 'normal':
-            self.users.users.append(
+            self.users.save_user(
                 NormalUser(input("NAME: "), input("BIRTHDATE: "), input("USERNAME: "), input("PASSWORD: "),
                            float(input("INITIAL DEPOSIT: "))))
 
         elif user_type == 'administrator':
-            self.users.users.append(Administrator(input("NAME: "), input("USERNAME: "), input("PASSWORD: ")))
+            self.users.save_user(Administrator(input("NAME: "), input("USERNAME: "), input("PASSWORD: ")))
 
         else:
             self.error_str = f"{user_type} is not a valid input to create a user."
 
-    def modify_user(self, idx):
+    def modify_user(self, person):
 
         while True:
             os.system('cls')
@@ -130,32 +141,34 @@ class BankingSystem():
             exchange = input("What would you like to exchange it with: ")
 
             if what == "name":
-                self.users.users[idx].name = exchange
+                person.name = exchange
             elif what == 'id':
-                self.users.users[idx].id = int(exchange)
+                person.id = int(exchange)
             elif what == 'birthdate':
-                self.users.users[idx].birthdate = exchange
+                person.birthdate = exchange
             elif what == 'username':
-                self.users.users[idx].username = exchange
+                person.username = exchange
             elif what == 'password':
-                self.users.users[idx].password = exchange
+                person.password = exchange
             elif what == 'balance':
-                self.users.users[idx].balance = float(exchange)
+                person.balance = float(exchange)
             else:
                 self.error_str = "Improper field for modification."
+
+        self.users.save_user(person)
 
     def main_loop(self):
         # login user
         print(f"{term.home}{term.black_on_skyblue}{term.clear}")
 
-        idx = self.request_login(limit=3)
+        self.user = self.request_login(limit=3)
 
         while True:
-            self.users.load_users()
+
             os.system('cls')
 
             print(self.error_str)
-            print(self.users.users[idx])
+            print(self.user)
             print()
 
             self.error_str = ""
@@ -163,22 +176,22 @@ class BankingSystem():
             commands = self.get_command()
 
             if commands[0] == 'deposit':
-                self.deposit(idx, commands[1])
+                self.deposit(commands[1])
 
             elif commands[0] == 'withdraw':
-                self.withdraw(idx, commands[1])
+                self.withdraw(commands[1])
 
             elif " ".join(commands) == "create user":
-                if self.users.users[idx].type == 'admin':
+                if self.user.type == 'admin':
                     self.create_user()
 
                 else:
                     self.error_str = "You do not have permission to create users."
 
             elif " ".join(commands) == "modify user":
-                if self.users.users[idx].type == 'admin':
-                    new_idx = self.request_login(limit=10)
-                    self.modify_user(new_idx)
+                if self.user.type == 'admin':
+                    modify_person = self.request_login(limit=10)
+                    self.modify_user(modify_person)
 
                 else:
                     self.error_str = "You do not have permission to modify users."
@@ -189,8 +202,6 @@ class BankingSystem():
 
             elif commands[0] == 'exit':
                 break
-
-            self.users.save_users()
 
 
 if __name__ == "__main__":
