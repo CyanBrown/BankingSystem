@@ -1,4 +1,5 @@
 import os
+import time
 
 from users import *
 
@@ -32,7 +33,8 @@ class UserDb():
             return Administrator(tup[1], tup[4], tup[5], id=tup[0])
 
         else:
-            return NormalUser(tup[1], tup[2], tup[4], tup[5], initial_deposit=tup[3], id=tup[0])
+
+            return NormalUser(tup[1], tup[2].strftime("%Y-%m-%d"), tup[4], tup[5], initial_deposit=tup[3], id=tup[0])
 
     def login_user(self, username: str, pwd: str):
 
@@ -51,7 +53,12 @@ class UserDb():
     def save_user(self, user):
 
         # print(f'insert into NormalUsers values {user.get_tuple()}')
-        self.cursor.execute(f"insert into NormalUsers values {user.get_tuple()}")
+        print(f"insert into NormalUsers values{user.get_tuple()}")
+
+        try:
+            self.cursor.execute(f"insert into NormalUsers values{user.get_tuple()}")
+        except mysql.connector.errors.IntegrityError:
+            self.cursor.execute(f"update NormalUsers set {user.get_update()} where id={user.id}")
         self.db.commit()
 
 
