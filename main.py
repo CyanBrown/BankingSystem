@@ -8,6 +8,7 @@ import stdiomask
 from typing import List
 from decimal import *
 import mysql.connector
+from typing import *
 
 from datetime import date
 
@@ -26,8 +27,8 @@ class UserDb():
 
         self.cursor = self.db.cursor()
 
-    def create_user_from_tuple(self, tup):
-        tup = list(tup)
+    def create_user_from_tuple(self, tupp):
+        tup = list(tupp)
 
         if tup[6] is not None and tup[6] != 0:
             return Administrator(tup[1], tup[4], tup[5], id=tup[0])
@@ -38,7 +39,8 @@ class UserDb():
 
     def login_user(self, username: str, pwd: str):
 
-        self.cursor.execute(f"select * from NormalUsers where username = '{username}' and password = '{pwd}'")
+
+        self.cursor.execute("select * from NormalUsers where username = %s and password = %s", (username, pwd))
 
         cur = [i for i in self.cursor]
 
@@ -48,12 +50,10 @@ class UserDb():
         else:
             return None
 
-
-
     def save_user(self, user):
 
         # print(f'insert into NormalUsers values {user.get_tuple()}')
-        print(f"insert into NormalUsers values{user.get_tuple()}")
+        # print(f"insert into NormalUsers values{user.get_tuple()}")
 
         try:
             self.cursor.execute(f"insert into NormalUsers values{user.get_tuple()}")
@@ -66,7 +66,6 @@ class BankingSystem():
     def __init__(self, userdb: UserDb):
         self.users = userdb
         self.error_str = ""
-        self.main_loop()
         self.user = None
 
     def request_login(self, limit):
@@ -88,14 +87,13 @@ class BankingSystem():
         print(term.red + 'You have run out of attempts' + term.red)
         quit()
 
-    def get_command(self):
-        commands = input("What would you like to do (type 'help' for more info): ").replace("$", '').split()
+    def get_command(self, cmd: List[str]):
 
-        if len(commands) == 0:
+        if len(cmd) == 0:
             self.error_str = "No command was given"
 
         else:
-            return commands
+            return cmd
 
     def deposit(self, command):
         try:
@@ -106,7 +104,7 @@ class BankingSystem():
             else:
                 self.error_str = "Administrators cannot deposit."
 
-        except TypeError:
+        except ValueError:
             self.error_str = "Amount of money to deposit is invalid."
 
     def withdraw(self, command):
@@ -118,7 +116,7 @@ class BankingSystem():
             else:
                 self.error_str = "Administrators cannot withdraw."
 
-        except TypeError:
+        except ValueError:
             self.error_str = "Amount of money to withdraw is invalid."
 
     def create_user(self):
@@ -180,7 +178,8 @@ class BankingSystem():
 
             self.error_str = ""
 
-            commands = self.get_command()
+            commands = self.get_command(
+                input("What would you like to do (type 'help' for more info): ").replace("$", '').split())
 
             if commands[0] == 'deposit':
                 self.deposit(commands[1])
@@ -215,3 +214,4 @@ if __name__ == "__main__":
     users = UserDb()
 
     bank = BankingSystem(users)
+    bank.main_loop()
